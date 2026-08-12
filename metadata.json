@@ -1,0 +1,6 @@
+{
+  "name": "عاجل نيوز | Ajel AI News",
+  "description": "منصة إخبارية متكاملة لنقل الأخبار العاجلة لحظة بلحظة من وكالات الأنباء العالمية والقنوات التلفزيونية والمنظمات الدولية مع تحليل الذكاء الاصطناعي للبث المباشر.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
