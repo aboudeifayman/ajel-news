@@ -66,13 +66,20 @@ export default {
         service: "Ajel News AI API",
       });
     }
+    if (request.method === "GET" && url.pathname === "/") {
+  return json({
+    status: "ok",
+    service: "Ajel News AI API",
+    message: "API is running successfully",
+  });
+}
+    
 
     if (request.method !== "POST") {
       return json({
         error: "Method not allowed",
       }, 405);
     }
-
     try {
       const body = await request.json();
 
