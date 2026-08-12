@@ -21,7 +21,7 @@ export default function App() {
       setLoading(true);
       setError("");
 
-      const response = await fetch(API_URL);
+      const response = await fetch(`${API_URL}/news`);
 
       if (!response.ok) {
         throw new Error("فشل الاتصال بالخادم");
