@@ -1,0 +1,6 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ajel-news-api",
+  "main": "worker.js",
+  "compatibility_date": "2026-08-12"
+}
