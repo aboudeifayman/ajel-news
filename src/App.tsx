@@ -1,262 +1,221 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Header } from './components/Header';
-import { TickerBar } from './components/TickerBar';
-import { SourceSelectorNav } from './components/SourceSelectorNav';
-import { LiveNewsFeed } from './components/LiveNewsFeed';
-import { AINewsCenter } from './components/AINewsCenter';
-import { LiveTVPlayer } from './components/LiveTVPlayer';
-import { GlobalHotspotsMap } from './components/GlobalHotspotsMap';
-import { CustomAlertsModal } from './components/CustomAlertsModal';
-import { NewsDetailModal } from './components/NewsDetailModal';
-import { TopTopicsD3Widget } from './components/TopTopicsD3Widget';
-import { INITIAL_NEWS_ITEMS, GLOBAL_SOURCES } from './data/mockNewsData';
-import { NewsItem, SourceType } from './types';
-import { playNewsAlertBeep } from './utils/sound';
-import { Radio, RefreshCw, AlertCircle, ShieldAlert, Sparkles, Globe, Heart } from 'lucide-react';
+import React, { useEffect, useState } from "react";
+
+const API_URL =
+  "https://ajel-news-api.aboudeifayman.workers.dev";
+
+type NewsItem = {
+  title: string;
+  description?: string;
+  source?: string;
+  url?: string;
+};
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'feed' | 'ai' | 'tv' | 'map' | 'alerts' | 'press' | 'broadcast'>('feed');
-  const [searchQuery, setSearchQuery] = useState('');
-  
-  // Filtering state
-  const [selectedSourceType, setSelectedSourceType] = useState<SourceType | 'all'>('all');
-  const [selectedSourceId, setSelectedSourceId] = useState<string | 'all'>('all');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [news, setNews] = useState<NewsItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [apiStatus, setApiStatus] = useState("جاري الاتصال...");
 
-  // Real-time items
-  const [newsList, setNewsList] = useState<NewsItem[]>(INITIAL_NEWS_ITEMS);
-  const [autoRefresh, setAutoRefresh] = useState(true);
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const checkAPI = async () => {
+    try {
+      setLoading(true);
+      setError("");
 
-  // Bookmarks & Alerts
-  const [bookmarkedIds, setBookmarkedIds] = useState<string[]>(['news-101', 'news-103']);
-  const [alertKeywords, setAlertKeywords] = useState<string[]>(['مجلس الأمن', 'الأمم المتحدة', 'أسعار النفط']);
+      const response = await fetch(API_URL);
 
-  // Modals & Active selections
-  const [selectedNewsForDetail, setSelectedNewsForDetail] = useState<NewsItem | null>(null);
-  const [newsItemForAI, setNewsItemForAI] = useState<NewsItem | null>(null);
+      if (!response.ok) {
+        throw new Error("فشل الاتصال بالخادم");
+      }
 
-  // Simulated live incoming wire stream
+      const data = await response.json();
+
+      setApiStatus(
+        data?.status === "ok"
+          ? "متصل ويعمل بنجاح"
+          : "الخادم متصل"
+      );
+
+      if (Array.isArray(data?.news)) {
+        setNews(data.news);
+      }
+    } catch (err) {
+      console.error(err);
+      setApiStatus("تعذر الاتصال");
+      setError("تعذر الاتصال بخدمة الأخبار حاليًا.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    if (!autoRefresh) return;
-
-    const simulatedLiveStreamInterval = setInterval(() => {
-      // Create a new simulated live wire item from random sources
-      const randomSources = [
-        GLOBAL_SOURCES[0], // Reuters
-        GLOBAL_SOURCES[1], // AFP
-        GLOBAL_SOURCES[2], // AP
-        GLOBAL_SOURCES[3], // Anadolu
-        GLOBAL_SOURCES[4], // SPA
-        GLOBAL_SOURCES[12], // UN
-        GLOBAL_SOURCES[13], // White House
-      ];
-      
-      const source = randomSources[Math.floor(Math.random() * randomSources.length)];
-      const sampleTitles = [
-        `عاجل | برقية جديدة من ${source.nameAr}: استمرار التنسيق بين المنظمات الدولية والميدانية`,
-        `تطور مفاجئ | ${source.nameAr} تنقل بياناً عاجلاً حول ملف الاستقرار الاقتصادي وسلاسل التوريد`,
-        `رسمياً | ${source.nameAr} تؤكد موعد الاجتماع التشاوري المقبل للأمم المتحدة`,
-        `متابعة عاجلة | صدور تقرير المراقبة الميدانية من ${source.nameAr} بشأن التطورات الجارية`,
-      ];
-
-      const newId = `live-wire-${Date.now()}`;
-      const title = sampleTitles[Math.floor(Math.random() * sampleTitles.length)];
-
-      const newItem: NewsItem = {
-        id: newId,
-        title,
-        summary: `نقلت وكالات الأنباء الدولية قبل قليل تفاصيل جديدة تتعلق بالمشاورات الجارية في المحافل الدولية والتنسيق مع فرق الإغاثة والمراقبين الميدانيين.`,
-        fullContent: `أفاد مراسلو الوكالات ببدء جولة جديدة من المباحثات الدبلوماسية. وذكر البيان الصادر عن ${source.nameAr} الالتزام التام بالمعايير والأطر المعتمدة وتسهيل الوصول الإنساني عاجلاً.`,
-        source,
-        category: 'middle_east',
-        urgency: 'breaking',
-        timestamp: new Date().toISOString(),
-        timeAgo: 'الآن',
-        isVerified: true,
-        viewsCount: 1500,
-        tags: ['عاجل', 'بث_مباشر', source.nameAr],
-      };
-
-      setNewsList((prev) => [newItem, ...prev.slice(0, 30)]);
-
-      if (soundEnabled) {
-        playNewsAlertBeep();
-      }
-    }, 18000); // Trigger every 18s
-
-    return () => clearInterval(simulatedLiveStreamInterval);
-  }, [autoRefresh, soundEnabled]);
-
-  // Manual Refresh Handler
-  const handleTriggerManualRefresh = () => {
-    setIsRefreshing(true);
-    setTimeout(() => {
-      setIsRefreshing(false);
-      if (soundEnabled) {
-        playNewsAlertBeep();
-      }
-    }, 600);
-  };
-
-  // Filter logic
-  const filteredNews = useMemo(() => {
-    return newsList.filter((item) => {
-      // Source Type Filter
-      if (selectedSourceType !== 'all' && item.source.type !== selectedSourceType) {
-        return false;
-      }
-      // Specific Source ID Filter
-      if (selectedSourceId !== 'all' && item.source.id !== selectedSourceId) {
-        return false;
-      }
-      // Regional / Topic Category
-      if (selectedCategory !== 'all' && item.category !== selectedCategory) {
-        return false;
-      }
-      // Search Query
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const matchesTitle = item.title.toLowerCase().includes(query);
-        const matchesSummary = item.summary.toLowerCase().includes(query);
-        const matchesSource = item.source.nameAr.toLowerCase().includes(query);
-        if (!matchesTitle && !matchesSummary && !matchesSource) {
-          return false;
-        }
-      }
-      return true;
-    });
-  }, [newsList, selectedSourceType, selectedSourceId, selectedCategory, searchQuery]);
-
-  // Bookmark Toggle
-  const handleBookmarkToggle = (item: NewsItem) => {
-    setBookmarkedIds((prev) =>
-      prev.includes(item.id) ? prev.filter((id) => id !== item.id) : [...prev, item.id]
-    );
-  };
-
-  // AI Summarize/Fact-Check redirect
-  const handleTriggerAIForNews = (item: NewsItem) => {
-    setNewsItemForAI(item);
-    setActiveTab('ai');
-  };
-
-  const bookmarkedNewsItems = useMemo(() => {
-    return newsList.filter((i) => bookmarkedIds.includes(i.id));
-  }, [newsList, bookmarkedIds]);
+    checkAPI();
+  }, []);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-cairo selection:bg-red-600 selection:text-white">
-      {/* Header Bar */}
-      <Header
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
-        autoRefresh={autoRefresh}
-        setAutoRefresh={setAutoRefresh}
-        soundEnabled={soundEnabled}
-        setSoundEnabled={setSoundEnabled}
-        bookmarkedCount={bookmarkedIds.length}
-        onTriggerManualRefresh={handleTriggerManualRefresh}
-        isRefreshing={isRefreshing}
-      />
+    <div
+      dir="rtl"
+      style={{
+        minHeight: "100vh",
+        background:
+          "linear-gradient(135deg,#07111f,#102a43,#0b1728)",
+        color: "#fff",
+        fontFamily: "Arial, sans-serif",
+        padding: "30px",
+      }}
+    >
+      <header
+        style={{
+          maxWidth: "1100px",
+          margin: "0 auto 30px",
+          textAlign: "center",
+        }}
+      >
+        <h1 style={{ fontSize: "38px", marginBottom: "10px" }}>
+          منصة عجل للأخبار والذكاء الاصطناعي
+        </h1>
 
-      {/* Breaking Ticker Bar */}
-      <TickerBar
-        items={newsList}
-        onSelectNews={(item) => setSelectedNewsForDetail(item)}
-        soundEnabled={soundEnabled}
-      />
+        <p style={{ fontSize: "18px", opacity: 0.8 }}>
+          Ajel News AI Platform
+        </p>
 
-      {/* Secondary Source & Category Navigation Bar */}
-      {activeTab === 'feed' && (
-        <SourceSelectorNav
-          selectedSourceType={selectedSourceType}
-          setSelectedSourceType={setSelectedSourceType}
-          selectedSourceId={selectedSourceId}
-          setSelectedSourceId={setSelectedSourceId}
-          selectedCategory={selectedCategory}
-          setSelectedCategory={setSelectedCategory}
-        />
-      )}
+        <div
+          style={{
+            display: "inline-block",
+            marginTop: "15px",
+            padding: "10px 20px",
+            borderRadius: "30px",
+            background:
+              apiStatus.includes("بنجاح")
+                ? "#14532d"
+                : "#713f12",
+          }}
+        >
+          ● حالة API: {apiStatus}
+        </div>
+      </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
-        {activeTab === 'feed' && (
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-3">
-              <LiveNewsFeed
-                newsItems={filteredNews}
-                onSelectNews={(item) => setSelectedNewsForDetail(item)}
-                onFactCheckNews={(item) => handleTriggerAIForNews(item)}
-                onAISummarizeNews={(item) => handleTriggerAIForNews(item)}
-                onBookmarkToggle={handleBookmarkToggle}
-                bookmarkedIds={bookmarkedIds}
-              />
-            </div>
-            <div className="lg:col-span-1 space-y-6">
-              <TopTopicsD3Widget
-                newsItems={newsList}
-                onSelectTopic={(tag) => setSearchQuery(tag)}
-              />
-            </div>
+      <main
+        style={{
+          maxWidth: "1100px",
+          margin: "auto",
+        }}
+      >
+        <section
+          style={{
+            background: "rgba(255,255,255,.08)",
+            borderRadius: "20px",
+            padding: "25px",
+            marginBottom: "25px",
+            backdropFilter: "blur(10px)",
+          }}
+        >
+          <h2>مركز الأخبار الذكي</h2>
+
+          <p style={{ opacity: 0.8 }}>
+            منصة موحدة لعرض الأخبار وتحليلها باستخدام تقنيات
+            الذكاء الاصطناعي.
+          </p>
+
+          <button
+            onClick={checkAPI}
+            disabled={loading}
+            style={{
+              border: "none",
+              borderRadius: "10px",
+              padding: "12px 25px",
+              cursor: "pointer",
+              fontSize: "16px",
+              marginTop: "10px",
+            }}
+          >
+            {loading ? "جاري التحديث..." : "تحديث الأخبار"}
+          </button>
+        </section>
+
+        {error && (
+          <div
+            style={{
+              background: "#7f1d1d",
+              padding: "15px",
+              borderRadius: "10px",
+              marginBottom: "20px",
+            }}
+          >
+            {error}
           </div>
         )}
 
-        {activeTab === 'ai' && (
-          <AINewsCenter
-            initialNewsItemForAnalysis={newsItemForAI}
-            onClearInitialNewsItem={() => setNewsItemForAI(null)}
-          />
-        )}
+        <section>
+          <h2>آخر الأخبار</h2>
 
-        {activeTab === 'tv' && <LiveTVPlayer />}
+          {news.length === 0 ? (
+            <div
+              style={{
+                background: "rgba(255,255,255,.06)",
+                padding: "30px",
+                borderRadius: "15px",
+                textAlign: "center",
+              }}
+            >
+              لا توجد أخبار مستلمة من API حاليًا.
+            </div>
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns:
+                  "repeat(auto-fit,minmax(280px,1fr))",
+                gap: "20px",
+              }}
+            >
+              {news.map((item, index) => (
+                <article
+                  key={index}
+                  style={{
+                    background: "rgba(255,255,255,.08)",
+                    borderRadius: "15px",
+                    padding: "20px",
+                  }}
+                >
+                  <h3>{item.title}</h3>
 
-        {activeTab === 'map' && (
-          <GlobalHotspotsMap
-            newsItems={newsList}
-            onSelectHotspotNews={(item) => setSelectedNewsForDetail(item)}
-          />
-        )}
+                  {item.description && (
+                    <p style={{ opacity: 0.8 }}>
+                      {item.description}
+                    </p>
+                  )}
 
-        {activeTab === 'alerts' && (
-          <CustomAlertsModal
-            bookmarkedNews={bookmarkedNewsItems}
-            onRemoveBookmark={(id) => setBookmarkedIds((prev) => prev.filter((i) => i !== id))}
-            onSelectNews={(item) => setSelectedNewsForDetail(item)}
-            alertKeywords={alertKeywords}
-            onAddKeyword={(kw) => setAlertKeywords((prev) => [...prev, kw])}
-            onRemoveKeyword={(kw) => setAlertKeywords((prev) => prev.filter((k) => k !== kw))}
-          />
-        )}
+                  {item.source && (
+                    <small>المصدر: {item.source}</small>
+                  )}
+
+                  {item.url && (
+                    <div style={{ marginTop: "15px" }}>
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: "#7dd3fc" }}
+                      >
+                        قراءة الخبر
+                      </a>
+                    </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
       </main>
 
-      {/* News Article Detail Modal */}
-      <NewsDetailModal
-        newsItem={selectedNewsForDetail}
-        onClose={() => setSelectedNewsForDetail(null)}
-        onFactCheck={(item) => handleTriggerAIForNews(item)}
-        onAISummarize={(item) => handleTriggerAIForNews(item)}
-        onBookmarkToggle={handleBookmarkToggle}
-        isBookmarked={selectedNewsForDetail ? bookmarkedIds.includes(selectedNewsForDetail.id) : false}
-      />
-
-      {/* Footer */}
-      <footer className="bg-slate-900 border-t border-slate-800 py-6 px-4 mt-12 text-center text-xs text-slate-400 font-readex">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="font-bold text-slate-200">عاجل نيوز (Ajel AI News Center)</span>
-          </div>
-          <p className="text-slate-400">
-            تغطية لحظية مستمرة من جميع وكالات الأنباء العالمية والقنوات الفضائية والمنظمات الأممية الموثوقة.
-          </p>
-          <div className="flex items-center gap-3 text-slate-400">
-            <span>مدعوم بـ Gemini 3.6 Flash</span>
-          </div>
-        </div>
+      <footer
+        style={{
+          textAlign: "center",
+          marginTop: "50px",
+          opacity: 0.6,
+        }}
+      >
+        Ajel News AI © 2026
       </footer>
     </div>
   );
